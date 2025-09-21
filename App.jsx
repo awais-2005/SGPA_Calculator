@@ -17,7 +17,16 @@ function getCourseIcon(name) {
   return '📚';
 }
 
+function calculateCardGPA(course) {
+  const percentage = Math.floor((course.marks / course.total) * 100);
+  if (percentage >= 80) return '4.0';
+  if (percentage < 50) return '0.0';
+  return (((percentage - 49) / 30 * 3.0 + 0.9).toFixed(1));
+}
+
 export default function App() {
+  const [editId, setEditId] = useState(null);
+
   const [courseName, setCourseName] = useState("");
   const [credits, setCredits] = useState("");
   const [marks, setMarks] = useState("");
@@ -30,15 +39,30 @@ export default function App() {
   const addCourse = () => {
     if (!courseName || !credits || !marks || !total) return;
 
-    const newCourse = {
-      id: Date.now().toString(),
-      name: courseName,
-      credits: parseFloat(credits),
-      marks: parseFloat(marks),
-      total: parseFloat(total),
-    };
-
-    setCourses([...courses, newCourse]);
+    if (editId) {
+      // Update existing course in-place (preserve order, avoid duplicates)
+      setCourses(courses.map((c) =>
+        c.id === editId
+          ? {
+              ...c,
+              name: courseName,
+              credits: parseFloat(credits),
+              marks: parseFloat(marks),
+              total: parseFloat(total),
+            }
+          : c
+      ));
+      setEditId(null);
+    } else {
+      const newCourse = {
+        id: Date.now().toString(),
+        name: courseName,
+        credits: parseFloat(credits),
+        marks: parseFloat(marks),
+        total: parseFloat(total),
+      };
+      setCourses([...courses, newCourse]);
+    }
     setCourseName("");
     // setCredits("");
     // setMarks("");
@@ -79,7 +103,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.outerContainer}>
       <View style={styles.navBar}>
-        <Text style={styles.navBarTitle}>DGPA Calculator</Text>
+        <Text style={styles.navBarTitle}>SGPA Calculator</Text>
       </View>
       <View style={styles.cardContainer}>
         <View style={styles.inputGroupBox}>
@@ -122,23 +146,36 @@ export default function App() {
         </View>
 
         <FlatList
-          data={courses}
+          data={editId ? courses.filter((c) => c.id !== editId) : courses}
           keyExtractor={(item) => item.id}
           style={styles.courseList}
           renderItem={({ item }) => (
-            <View style={styles.courseCard}>
-              <View style={styles.courseIconBox}>
-                <Text style={styles.courseIcon}>{getCourseIcon(item.name)}</Text>
+            <View style={styles.subjectCard}>
+              <View style={styles.subjectIconBox}>
+                <Text style={styles.subjectIcon}>{getCourseIcon(item.name)}</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.courseTitle}>{item.name}</Text>
-                <Text style={styles.courseDetails}>
-                  Credits: {item.credits} | Marks: {item.marks}/{item.total}
-                </Text>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.subjectTitle}>{item.name}</Text>
+                <Text style={styles.subjectDetails}>Credits: {item.credits} | Marks: {item.marks}/{item.total}</Text>
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity style={styles.editButton} onPress={() => {
+  setCourseName(item.name);
+  setCredits(item.credits.toString());
+  setMarks(item.marks.toString());
+  setTotal(item.total.toString());
+  setEditId(item.id);
+}}>
+                    <Text style={styles.editButtonText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.deleteButton} onPress={() => removeCourse(item.id)}>
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <TouchableOpacity onPress={() => removeCourse(item.id)}>
-                <Text style={styles.removeButton}>✕</Text>
-              </TouchableOpacity>
+              <View style={styles.gpaBadgeBox}>
+                {/* <Text style={styles.gpaBadgeLabel}>GPA:</Text> */}
+                <Text style={styles.gpaBadgeValue}>GPA: {calculateCardGPA(item)}</Text>
+              </View>
             </View>
           )}
         />
@@ -174,6 +211,87 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  subjectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e6eaf0',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    marginBottom: 14,
+    shadowColor: '#137fec',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  subjectIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#e3efff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 0,
+  },
+  subjectIcon: {
+    fontSize: 22,
+    color: '#137fec',
+    fontWeight: 'bold',
+  },
+  subjectTitle: {
+    fontWeight: 'bold',
+    fontSize: 16.5,
+    color: '#222',
+    marginBottom: 2,
+  },
+  subjectDetails: {
+    color: '#6d7b8a',
+    fontSize: 13.5,
+    marginBottom: 10,
+  },
+  gpaBadgeBox: {
+    backgroundColor: '#e3efff',
+    borderRadius: 25,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginLeft: 12,
+  },
+  gpaBadgeValue: {
+    color: '#137fec',
+    fontWeight: 'bold',
+    fontSize: 13,
+    marginTop: 1,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+  },
+  editButton: {
+    backgroundColor: '#f5f7fa',
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 13,
+    marginRight: 8,
+  },
+  editButtonText: {
+    color: '#6d7b8a',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  deleteButton: {
+    backgroundColor: '#ffeaea',
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 13,
+  },
+  deleteButtonText: {
+    color: '#ff5a5f',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   navBar: {
     width: '100%',
     backgroundColor: '#fff',
@@ -196,9 +314,10 @@ const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
     backgroundColor: '#fff',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50,
+    paddingTop: 90,
+    maxHeight: '100vh',
+    overflow: 'scroll',
   },
   cardContainer: {
     width: '95%',
