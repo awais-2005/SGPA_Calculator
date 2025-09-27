@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Alert } from "react-native";
 import {
   SafeAreaView,
   View,
@@ -7,15 +8,11 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  Image,
 } from "react-native";
 
-function getCourseIcon(name) {
-  const n = name.toLowerCase();
-  if (n.includes('chem')) return '🧪';
-  if (n.includes('math')) return '📋';
-  if (n.includes('hist')) return '📘';
-  return '📚';
-}
+
+
 
 function calculateCardGPA(course) {
   const percentage = Math.floor((course.marks / course.total) * 100);
@@ -25,6 +22,10 @@ function calculateCardGPA(course) {
 }
 
 export default function App() {
+  const [courseNameFocus, setCourseNameFocus] = useState(false);
+  const [creditsFocus, setCreditsFocus] = useState(false);
+  const [marksFocus, setMarksFocus] = useState(false);
+  const [totalFocus, setTotalFocus] = useState(false);
   const [editId, setEditId] = useState(null);
 
   const [courseName, setCourseName] = useState("");
@@ -38,6 +39,9 @@ export default function App() {
 
   const addCourse = () => {
     if (!courseName || !credits || !marks || !total) return;
+    let marksNum = parseFloat(marks);
+    let totalNum = parseFloat(total);
+    let creditsNum = parseFloat(credits);
 
     if (editId) {
       // Update existing course in-place (preserve order, avoid duplicates)
@@ -46,9 +50,9 @@ export default function App() {
           ? {
               ...c,
               name: courseName,
-              credits: parseFloat(credits),
-              marks: parseFloat(marks),
-              total: parseFloat(total),
+              credits: creditsNum,
+              marks: marksNum,
+              total: totalNum,
             }
           : c
       ));
@@ -57,16 +61,13 @@ export default function App() {
       const newCourse = {
         id: Date.now().toString(),
         name: courseName,
-        credits: parseFloat(credits),
-        marks: parseFloat(marks),
-        total: parseFloat(total),
+        credits: creditsNum,
+        marks: marksNum,
+        total: totalNum,
       };
       setCourses([...courses, newCourse]);
     }
     setCourseName("");
-    // setCredits("");
-    // setMarks("");
-    // setTotal("");
     setCalculated(false);
     setGpa(null);
   };
@@ -103,41 +104,76 @@ export default function App() {
   return (
     <SafeAreaView style={styles.outerContainer}>
       <View style={styles.navBar}>
-        <Text style={styles.navBarTitle}>SGPA Calculator</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image source={require('./assets/logos/app-logo.png')} style={styles.navLogo} />
+          <Text style={styles.navBarTitle}>SGPA Calculator</Text>
+        </View>
       </View>
       <View style={styles.cardContainer}>
         <View style={styles.inputGroupBox}>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              courseNameFocus && { borderWidth: 1, borderColor: '#137fec' }
+            ]}
             placeholder="Course Name"
             value={courseName}
             placeholderTextColor="#bfc6d1"
             onChangeText={setCourseName}
+            onFocus={() => setCourseNameFocus(true)}
+            onBlur={() => setCourseNameFocus(false)}
           />
           <View style={styles.inputRow}>
             <TextInput
-              style={[styles.input, styles.inputSmall]}
+              style={[
+                styles.input,
+                styles.inputSmall,
+                creditsFocus && { borderWidth: 1, borderColor: '#137fec' }
+              ]}
               placeholder="Credits"
               value={credits}
               placeholderTextColor="#bfc6d1"
-              onChangeText={setCredits}
+              onChangeText={val => {
+                let num = val.replace(/[^0-9.]/g, "");
+                setCredits(num);
+              }}
               keyboardType="numeric"
+              onFocus={() => setCreditsFocus(true)}
+              onBlur={() => setCreditsFocus(false)}
             />
             <TextInput
-              style={[styles.input, styles.inputSmall]}
+              style={[
+                styles.input,
+                styles.inputSmall,
+                marksFocus && { borderWidth: 1, borderColor: '#137fec' }
+              ]}
               placeholder="Marks"
               value={marks}
               placeholderTextColor="#bfc6d1"
-              onChangeText={setMarks}
+              onChangeText={val => {
+                let num = val.replace(/[^0-9.]/g, "");
+                setMarks(num);
+              }}
               keyboardType="numeric"
+              onFocus={() => setMarksFocus(true)}
+              onBlur={() => setMarksFocus(false)}
             />
             <TextInput
-              style={[styles.input, styles.inputSmall]}
-              placeholder="Total"
+              style={[
+                styles.input,
+                styles.inputSmall,
+                totalFocus && { borderWidth: 1, borderColor: '#137fec' }
+              ]}
+              placeholder="Total: 100"
               value={total}
               placeholderTextColor="#bfc6d1"
-              onChangeText={setTotal}
+              onChangeText={val => {
+                let num = val.replace(/[^0-9.]/g, "");
+                setTotal(num);
+              }}
               keyboardType="numeric"
+              onFocus={() => setTotalFocus(true)}
+              onBlur={() => setTotalFocus(false)}
             />
           </View>
           <TouchableOpacity style={styles.addButton} onPress={addCourse}>
@@ -152,28 +188,33 @@ export default function App() {
           renderItem={({ item }) => (
             <View style={styles.subjectCard}>
               <View style={styles.subjectIconBox}>
-                <Text style={styles.subjectIcon}>{getCourseIcon(item.name)}</Text>
+                <Image source={require('./assets/logos/course-logo.png')} style={styles.courseLogo} />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.subjectTitle}>{item.name}</Text>
                 <Text style={styles.subjectDetails}>Credits: {item.credits} | Marks: {item.marks}/{item.total}</Text>
                 <View style={styles.buttonRow}>
                   <TouchableOpacity style={styles.editButton} onPress={() => {
-  setCourseName(item.name);
-  setCredits(item.credits.toString());
-  setMarks(item.marks.toString());
-  setTotal(item.total.toString());
-  setEditId(item.id);
-}}>
-                    <Text style={styles.editButtonText}>Edit</Text>
+                    setCourseName(item.name);
+                    setCredits(item.credits.toString());
+                    setMarks(item.marks.toString());
+                    setTotal(item.total.toString());
+                    setEditId(item.id);
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Image source={require('./assets/logos/edit-logo.png')} style={styles.actionLogo} />
+                      <Text style={styles.editButtonText}>Edit</Text>
+                    </View>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.deleteButton} onPress={() => removeCourse(item.id)}>
-                    <Text style={styles.deleteButtonText}>Delete</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Image source={require('./assets/logos/delete-logo.png')} style={styles.actionLogo} />
+                      <Text style={styles.deleteButtonText}>Delete</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
               <View style={styles.gpaBadgeBox}>
-                {/* <Text style={styles.gpaBadgeLabel}>GPA:</Text> */}
                 <Text style={styles.gpaBadgeValue}>GPA: {calculateCardGPA(item)}</Text>
               </View>
             </View>
@@ -202,7 +243,7 @@ export default function App() {
           )
         ) : (
           <Text style={styles.secondaryText}>
-            Add 2 or more courses to calculate GPA
+            Add minimum 3 courses to calculate GPA
           </Text>
         )}
       </View>
@@ -221,11 +262,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 18,
     marginBottom: 14,
-    shadowColor: '#137fec',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
   subjectIconBox: {
     width: 44,
@@ -234,12 +270,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#e3efff',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 40,
     marginRight: 0,
   },
-  subjectIcon: {
-    fontSize: 22,
-    color: '#137fec',
-    fontWeight: 'bold',
+  courseLogo: {
+    width: 32,
+    height: 32,
+    resizeMode: 'contain',
+  },
+  actionLogo: {
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
+  },
+  navLogo: {
+    width: 32,
+    height: 32,
+    marginRight: 10,
+    resizeMode: 'contain',
   },
   subjectTitle: {
     fontWeight: 'bold',
@@ -257,7 +305,9 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    marginLeft: 12,
+    marginLeft: 10,
+    marginRight: 2,
+    marginTop: -40,
   },
   gpaBadgeValue: {
     color: '#137fec',
@@ -268,6 +318,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     marginTop: 2,
+    paddingLeft: 100,
   },
   editButton: {
     backgroundColor: '#f5f7fa',
@@ -280,6 +331,7 @@ const styles = StyleSheet.create({
     color: '#6d7b8a',
     fontWeight: 'bold',
     fontSize: 14,
+    marginLeft: 4,
   },
   deleteButton: {
     backgroundColor: '#ffeaea',
@@ -291,6 +343,7 @@ const styles = StyleSheet.create({
     color: '#ff5a5f',
     fontWeight: 'bold',
     fontSize: 14,
+    marginLeft: 4,
   },
   navBar: {
     width: '100%',
@@ -329,6 +382,8 @@ const styles = StyleSheet.create({
   inputGroupBox: {
     backgroundColor: '#f6f8fa',
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#137fec',
     padding: 14,
     marginBottom: 18,
     shadowColor: '#137fec',
@@ -352,7 +407,6 @@ const styles = StyleSheet.create({
     color: '#222',
     marginBottom: 10,
     height: 40,
-    // flex: 1 removed for single input
   },
   inputSmall: {
     flex: 1,
