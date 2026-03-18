@@ -1,27 +1,30 @@
 import React, { useState } from "react";
-import { Alert } from "react-native";
 import {
   SafeAreaView,
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
   StyleSheet,
   Image,
+  ScrollView,
+  TouchableOpacity,
 } from "react-native";
+import CourseInput from "./components/CourseInput";
+import CourseList from "./components/CourseList";
+import ResultsCard from "./components/ResultsCard";
 
 
 
-
-function calculateCardGPA(course) {
-  const percentage = Math.floor((course.marks / course.total) * 100);
-  if (percentage >= 80) return '4.0';
-  if (percentage < 50) return '0.0';
-  return (((percentage - 49) / 30 * 3.0 + 0.9).toFixed(1));
-}
 
 export default function App() {
+  // GPA calculation helper
+  function calculateCardGPA(course) {
+    const percentage = Math.floor((course.marks / course.total) * 100);
+    if (percentage >= 80) return '4.0';
+    if (percentage < 50) return '0.0';
+    return (((percentage - 49) / 30 * 3.0 + 0.9).toFixed(1));
+  }
+
+  // State hooks
   const [courseNameFocus, setCourseNameFocus] = useState(false);
   const [creditsFocus, setCreditsFocus] = useState(false);
   const [marksFocus, setMarksFocus] = useState(false);
@@ -31,31 +34,36 @@ export default function App() {
   const [courseName, setCourseName] = useState("");
   const [credits, setCredits] = useState("");
   const [marks, setMarks] = useState("");
-  const [total, setTotal] = useState("");
+  // Total is always 100, no input needed
+  const total = 100;
 
   const [courses, setCourses] = useState([]);
   const [gpa, setGpa] = useState(null);
   const [calculated, setCalculated] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [totalPercentage, setTotalPercentage] = useState(0);
+  const [totalCredits, setTotalCredits] = useState(0);
 
+  // Add or edit course
   const addCourse = () => {
-    if (!courseName || !credits || !marks || !total) return;
+    if (!courseName || !credits || !marks) return;
     let marksNum = parseFloat(marks);
-    let totalNum = parseFloat(total);
     let creditsNum = parseFloat(credits);
 
+    let updatedCourses;
     if (editId) {
-      // Update existing course in-place (preserve order, avoid duplicates)
-      setCourses(courses.map((c) =>
+      updatedCourses = courses.map((c) =>
         c.id === editId
           ? {
               ...c,
               name: courseName,
               credits: creditsNum,
               marks: marksNum,
-              total: totalNum,
+              total: 100,
             }
           : c
-      ));
+      );
+      setCourses(updatedCourses);
       setEditId(null);
     } else {
       const newCourse = {
@@ -63,211 +71,315 @@ export default function App() {
         name: courseName,
         credits: creditsNum,
         marks: marksNum,
-        total: totalNum,
+        total: 100,
       };
-      setCourses([...courses, newCourse]);
+      updatedCourses = [...courses, newCourse];
+      setCourses(updatedCourses);
     }
     setCourseName("");
+    setCredits("");
+    setMarks("");
+    // Reset calculated state and hide results when adding/editing a course
     setCalculated(false);
+    setShowResults(false);
     setGpa(null);
   };
 
+  // Remove course
   const removeCourse = (id) => {
     setCourses(courses.filter((c) => c.id !== id));
     setCalculated(false);
     setGpa(null);
   };
 
+  // Calculate GPA
   const calculateGPA = () => {
     let totalPoints = 0;
-    let totalCredits = 0;
-
+    let creditsSum = 0;
+    let totalMarks = 0;
+    let totalMax = 0;
     courses.forEach((course) => {
       const percentage = Math.floor((course.marks / course.total) * 100);
-      
       if (percentage >= 80)
-        totalPoints += 4.0 * course.credits
+        totalPoints += 4.0 * course.credits;
       else if (percentage < 50)
-        totalPoints += 0.0 * course.credits
+        totalPoints += 0.0 * course.credits;
       else
-        totalPoints += ((percentage - 49) / 30 * 3.0 + 0.9) * course.credits
-      
-      // total credits
-      totalCredits += course.credits;
+        totalPoints += ((percentage - 49) / 30 * 3.0 + 0.9) * course.credits;
+      creditsSum += course.credits;
+      totalMarks += course.marks;
+      totalMax += course.total;
     });
 
-    const result = totalCredits > 0 ? totalPoints / totalCredits : 0;
+    const result = creditsSum > 0 ? totalPoints / creditsSum : 0;
     setGpa(result.toFixed(2));
     setCalculated(true);
+    setShowResults(true);
+    setTotalPercentage(totalMax > 0 ? Math.round((totalMarks / totalMax) * 100) : 0);
+    setTotalCredits(creditsSum);
   };
 
   return (
     <SafeAreaView style={styles.outerContainer}>
       <View style={styles.navBar}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={require('./assets/logos/app-logo.png')} style={styles.navLogo} />
+          {/* <Image source={require('./assets/logos/app-logo.png')} style={styles.navLogo} /> */}
           <Text style={styles.navBarTitle}>SGPA Calculator</Text>
         </View>
       </View>
-      <View style={styles.cardContainer}>
-        <View style={styles.inputGroupBox}>
-          <TextInput
-            style={[
-              styles.input,
-              courseNameFocus && { borderWidth: 1, borderColor: '#137fec' }
-            ]}
-            placeholder="Course Name"
-            value={courseName}
-            placeholderTextColor="#bfc6d1"
-            onChangeText={setCourseName}
-            onFocus={() => setCourseNameFocus(true)}
-            onBlur={() => setCourseNameFocus(false)}
-          />
-          <View style={styles.inputRow}>
-            <TextInput
-              style={[
-                styles.input,
-                styles.inputSmall,
-                creditsFocus && { borderWidth: 1, borderColor: '#137fec' }
-              ]}
-              placeholder="Credits"
-              value={credits}
-              placeholderTextColor="#bfc6d1"
-              onChangeText={val => {
-                let num = val.replace(/[^0-9.]/g, "");
-                setCredits(num);
-              }}
-              keyboardType="numeric"
-              onFocus={() => setCreditsFocus(true)}
-              onBlur={() => setCreditsFocus(false)}
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={{ alignItems: 'center', paddingTop: 90 }}>
+        <View style={styles.cardContainer}>
+          {!calculated && (
+            <CourseInput
+              courseName={courseName}
+              credits={credits}
+              marks={marks}
+              setCourseName={setCourseName}
+              setCredits={setCredits}
+              setMarks={setMarks}
+              courseNameFocus={courseNameFocus}
+              setCourseNameFocus={setCourseNameFocus}
+              creditsFocus={creditsFocus}
+              setCreditsFocus={setCreditsFocus}
+              marksFocus={marksFocus}
+              setMarksFocus={setMarksFocus}
+              addCourse={addCourse}
+              styles={styles}
             />
-            <TextInput
-              style={[
-                styles.input,
-                styles.inputSmall,
-                marksFocus && { borderWidth: 1, borderColor: '#137fec' }
-              ]}
-              placeholder="Marks"
-              value={marks}
-              placeholderTextColor="#bfc6d1"
-              onChangeText={val => {
-                let num = val.replace(/[^0-9.]/g, "");
-                setMarks(num);
-              }}
-              keyboardType="numeric"
-              onFocus={() => setMarksFocus(true)}
-              onBlur={() => setMarksFocus(false)}
-            />
-            <TextInput
-              style={[
-                styles.input,
-                styles.inputSmall,
-                totalFocus && { borderWidth: 1, borderColor: '#137fec' }
-              ]}
-              placeholder="Total: 100"
-              value={total}
-              placeholderTextColor="#bfc6d1"
-              onChangeText={val => {
-                let num = val.replace(/[^0-9.]/g, "");
-                setTotal(num);
-              }}
-              keyboardType="numeric"
-              onFocus={() => setTotalFocus(true)}
-              onBlur={() => setTotalFocus(false)}
-            />
-          </View>
-          <TouchableOpacity style={styles.addButton} onPress={addCourse}>
-            <Text style={styles.addButtonText}>＋ Add Course</Text>
-          </TouchableOpacity>
-        </View>
-
-        <FlatList
-          data={editId ? courses.filter((c) => c.id !== editId) : courses}
-          keyExtractor={(item) => item.id}
-          style={styles.courseList}
-          renderItem={({ item }) => (
-            <View style={styles.subjectCard}>
-              <View style={styles.subjectIconBox}>
-                <Image source={require('./assets/logos/course-logo.png')} style={styles.courseLogo} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.subjectTitle}>{item.name}</Text>
-                <Text style={styles.subjectDetails}>Credits: {item.credits} | Marks: {item.marks}/{item.total}</Text>
-                <View style={styles.buttonRow}>
-                  <TouchableOpacity style={styles.editButton} onPress={() => {
-                    setCourseName(item.name);
-                    setCredits(item.credits.toString());
-                    setMarks(item.marks.toString());
-                    setTotal(item.total.toString());
-                    setEditId(item.id);
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Image source={require('./assets/logos/edit-logo.png')} style={styles.actionLogo} />
-                      <Text style={styles.editButtonText}>Edit</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.deleteButton} onPress={() => removeCourse(item.id)}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Image source={require('./assets/logos/delete-logo.png')} style={styles.actionLogo} />
-                      <Text style={styles.deleteButtonText}>Delete</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={styles.gpaBadgeBox}>
-                <Text style={styles.gpaBadgeValue}>GPA: {calculateCardGPA(item)}</Text>
-              </View>
-            </View>
           )}
-        />
 
-        {gpa && (
-          <View style={styles.gpaBox}>
-            <Text style={styles.gpaLabel}>Your Calculated GPA</Text>
-            <Text style={styles.gpaValue}>{gpa}</Text>
-          </View>
-        )}
+          <Text style={styles.sectionHeader}>Courses</Text>
 
-        {courses.length > 1 ? (
-          !calculated ? (
-            <TouchableOpacity style={styles.calcButton} onPress={calculateGPA}>
-              <Text style={styles.calcButtonText}>Calculate GPA</Text>
-            </TouchableOpacity>
+          <CourseList
+            courses={courses}
+            editId={editId}
+            onEdit={(item) => {
+              setCourseName(item.name);
+              setCredits(item.credits.toString());
+              setMarks(item.marks.toString());
+              setEditId(item.id);
+            }}
+            onDelete={removeCourse}
+            calculateCardGPA={calculateCardGPA}
+            styles={styles}
+            hideActions={calculated}
+          />
+
+          {courses.length > 1 ? (
+            !calculated ? (
+              <TouchableOpacity style={styles.calcButton} onPress={calculateGPA} activeOpacity={0.8}>
+                <Text style={styles.calcButtonText}>Calculate</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={[styles.calcButton, { backgroundColor: "#ff6600" }]} onPress={() => { setCalculated(false); setShowResults(false); }} activeOpacity={0.8}>
+                <Text style={styles.calcButtonText}>Edit</Text>
+              </TouchableOpacity>
+            )
           ) : (
-            <TouchableOpacity
-              style={[styles.calcButton, { backgroundColor: "#137fec" }]}
-              onPress={() => setCalculated(false)}
-            >
-              <Text style={styles.calcButtonText}>Edit</Text>
-            </TouchableOpacity>
-          )
-        ) : (
-          <Text style={styles.secondaryText}>
-            Add minimum 3 courses to calculate GPA
-          </Text>
-        )}
-      </View>
+            <Text style={styles.secondaryText}>
+              Add minimum 2 courses to calculate GPA
+            </Text>
+          )}
+
+          {showResults && (
+            <ResultsCard
+              totalPercentage={totalPercentage}
+              gpa={gpa}
+              totalCredits={totalCredits}
+              styles={styles}
+            />
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
+// ...existing code...
 }
 
 const styles = StyleSheet.create({
-  subjectCard: {
+  scrollContainer: {
+    width: '100%',
+    backgroundColor: '#201A17',
+  },
+  outerContainer: {
+    flex: 1,
+    backgroundColor: '#201A17',
+    alignItems: 'center',
+    minHeight: '100%',
+  },
+  navBar: {
+    width: '100%',
+    backgroundColor: '#201A17',
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 30,
+    borderBottomWidth: 0.3,
+    borderBottomColor: '#ff6600',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  navLogo: {
+    width: 32,
+    height: 32,
+    marginRight: 10,
+    resizeMode: 'contain',
+  },
+  navBarTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ff6600',
+    letterSpacing: 0.5,
+  },
+  cardContainer: {
+    width: '100%',
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    padding: 0,
+  },
+  inputGroupBox: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    paddingHorizontal: 18,
+    paddingTop: 2,
+    marginBottom: 18,
+    width: '100%',
+  },
+  inputLabel: {
+    color: '#96908dff',
+    fontSize: 15,
+    fontWeight: '500',
+    marginBottom: 4,
+    marginLeft: 2,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 6,
+    width: '100%',
+  },
+  input: {
+    backgroundColor: '#292524',
+    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#CFC9C7',
+    marginBottom: 12,
+    borderWidth: 0,
+    width: '100%',
+  },
+  inputSmall: {
+    flex: 1,
+    marginBottom: 0,
+    width: 'auto',
+  },
+  addButton: {
+    backgroundColor: '#ff6600',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    marginTop: 2,
+    marginBottom: 2,
+    shadowColor: '#ff6600',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
+    width: '100%',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 17,
+    letterSpacing: 0.2,
+  },
+  sectionHeader: {
+    color: '#CFC9C7',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    marginLeft: 15,
+    marginTop: 2,
+    letterSpacing: 0.2,
+  },
+  courseList: {
+    marginBottom: 8,
+    paddingHorizontal: 18,
+  },
+  courseCardModern: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#292524',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e6eaf0',
-    paddingVertical: 16,
+    paddingVertical: 5,
     paddingHorizontal: 18,
     marginBottom: 14,
+    borderWidth: 0,
+  },
+  courseTitleModern: {
+    fontWeight: 'bold',
+    fontSize: 16.5,
+    color: '#CFC9C7',
+    marginBottom: 2,
+  },
+  courseDetailsModern: {
+    color: '#bfc6d1',
+    fontSize: 13.5,
+    marginBottom: 10,
+  },
+  gpaRightBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ff6600',
+    marginRight: 10,
+    gap: 6,
+    borderRadius: 15,
+    paddingHorizontal: 5,
+  },
+  gpaLabelModern: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  gpaValueModern: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+    textAlign: 'right',
+  },
+  iconRowModern: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconButtonModern: {
+    backgroundColor: 'transparent',
+    padding: 4,
+    marginLeft: 2,
+    borderRadius: 6,
+  },
+  actionLogoModern: {
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
+    tintColor: '#bfc6d1',
   },
   subjectIconBox: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#e3efff',
+    backgroundColor: '#3a2a1e',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 40,
@@ -283,25 +395,19 @@ const styles = StyleSheet.create({
     height: 18,
     resizeMode: 'contain',
   },
-  navLogo: {
-    width: 32,
-    height: 32,
-    marginRight: 10,
-    resizeMode: 'contain',
-  },
   subjectTitle: {
     fontWeight: 'bold',
     fontSize: 16.5,
-    color: '#222',
+    color: '#fff',
     marginBottom: 2,
   },
   subjectDetails: {
-    color: '#6d7b8a',
+    color: '#bfc6d1',
     fontSize: 13.5,
     marginBottom: 10,
   },
   gpaBadgeBox: {
-    backgroundColor: '#e3efff',
+    backgroundColor: '#ff6600',
     borderRadius: 25,
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -310,7 +416,7 @@ const styles = StyleSheet.create({
     marginTop: -40,
   },
   gpaBadgeValue: {
-    color: '#137fec',
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 13,
     marginTop: 1,
@@ -321,189 +427,37 @@ const styles = StyleSheet.create({
     paddingLeft: 100,
   },
   editButton: {
-    backgroundColor: '#f5f7fa',
+    backgroundColor: '#3a2a1e',
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: 13,
     marginRight: 8,
   },
   editButtonText: {
-    color: '#6d7b8a',
+    color: '#bfc6d1',
     fontWeight: 'bold',
     fontSize: 14,
     marginLeft: 4,
   },
   deleteButton: {
-    backgroundColor: '#ffeaea',
+    backgroundColor: '#ff6600',
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: 13,
   },
   deleteButtonText: {
-    color: '#ff5a5f',
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
     marginLeft: 4,
   },
-  navBar: {
-    width: '100%',
-    backgroundColor: '#fff',
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 30,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e6eaf0',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0, 
-    zIndex: 1000,
-  },
-  navBarTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#137fec',
-  },
-  outerContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    paddingTop: 90,
-    maxHeight: '100vh',
-    overflow: 'scroll',
-  },
-  cardContainer: {
-    width: '95%',
-    maxWidth: 370,
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 6,
-  },
-  inputGroupBox: {
-    backgroundColor: '#f6f8fa',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#137fec',
-    padding: 14,
-    marginBottom: 18,
-    shadowColor: '#137fec',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e6eaf0',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#222',
-    marginBottom: 10,
-    height: 40,
-  },
-  inputSmall: {
-    flex: 1,
-    marginRight: 8,
-    marginBottom: 0,
-  },
-  addButton: {
-    backgroundColor: '#e3efff',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 38,
-    marginTop: 2,
-    marginBottom: 2,
-  },
-  addButtonText: {
-    color: '#137fec',
-    fontWeight: 'bold',
-    fontSize: 15,
-    letterSpacing: 0.2,
-  },
-  courseList: {
-    maxHeight: 300,
-    marginBottom: 8,
-  },
-  courseCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 0.5,
-    borderColor: '#e6eaf0',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-  },
-  courseIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#e3efff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  courseIcon: {
-    fontSize: 20,
-    color: '#137fec',
-    fontWeight: 'bold',
-  },
-  courseTitle: {
-    fontWeight: 'bold',
-    fontSize: 15.5,
-    color: '#222',
-    marginBottom: 2,
-  },
-  courseDetails: {
-    color: '#6d7b8a',
-    fontSize: 13.5,
-  },
-  removeButton: {
-    fontSize: 22,
-    color: '#bfc6d1',
-    marginLeft: 10,
-    fontWeight: 'bold',
-  },
-  gpaBox: {
-    backgroundColor: '#f6f8fa',
-    borderRadius: 14,
-    alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 8,
-    marginBottom: 8,
-    shadowColor: '#137fec',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  gpaLabel: {
-    color: '#6d7b8a',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  gpaValue: {
-    fontSize: 38,
-    fontWeight: 'bold',
-    color: '#137fec',
-    marginTop: 4,
-    letterSpacing: 1,
-  },
   calcButton: {
-    backgroundColor: '#137fec',
+    backgroundColor: '#ff6600',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     height: 44,
+    marginHorizontal: 18,
     marginTop: 10,
     marginBottom: 2,
   },
@@ -519,5 +473,60 @@ const styles = StyleSheet.create({
     color: '#bfc6d1',
     fontSize: 14,
     fontWeight: '500',
+  },
+  resultsCardModern: {
+    backgroundColor: '#292524',
+    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    marginTop: 18,
+    marginBottom: 8,
+    marginHorizontal: 18,
+  },
+  resultsLabelModern: {
+    color: 'lightgray',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    letterSpacing: 0.2,
+  },
+  resultsRowModern: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 32,
+    marginBottom: 2,
+    marginTop: 2,
+  },
+  resultsTextModern: {
+    color: '#bfc6d1',
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: 0.1,
+  },
+  resultsTextGpaModern: {
+    color: '#ff6600',
+    fontSize: 15,
+    fontWeight: 'bold',
+    letterSpacing: 0.1,
+  },
+  resultsValueModern: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+    letterSpacing: 0.1,
+  },
+  resultsGpaModern: {
+    color: '#ff6600',
+    fontSize: 22,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  dividerModern: {
+    height: 1.5,
+    backgroundColor: '#4F4F4F',
+    marginVertical: 7,
+    borderRadius: 2,
+    opacity: 0.7,
   },
 });
